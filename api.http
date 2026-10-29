@@ -1,0 +1,898 @@
+### =====================================================================
+### Menify API tests (VS Code "REST Client" extension)
+### Run the requests IN ORDER the first time.
+### The refresh cookie ("jwt") is stored automatically by REST Client and
+### sent to /api/auth/* because its path is /api/auth.
+### =====================================================================
+
+@baseUrl = http://localhost:3000
+
+# .env must contain: EMAIL=...  PASSWORD=...   (the account created by request 2.1)
+# Edit these two for each NEW registration test (email + slug must be unique):
+@regEmail = owner1@test.com
+@regSlug = test-cafe-1
+@regPassword = Passw0rd!123
+
+# Access token captured from the login request below
+@token = {{login.response.body.$.data.accessToken}}
+
+
+### =====================================================================
+### 1. HEALTH
+### =====================================================================
+
+### 1.1 Health check -> 200
+GET {{baseUrl}}/api/health
+
+### 1.2 Unknown route -> 404 (NOT 401)
+GET {{baseUrl}}/api/does-not-exist
+
+
+### =====================================================================
+### 2. REGISTER (public)
+### =====================================================================
+
+### 2.1 Register restaurant + admin -> 201, roles must be "5150"
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "restaurantName": "Test Cafe",
+  "slug": "{{regSlug}}",
+  "username": "owner one",
+  "email": "{{regEmail}}",
+  "password": "{{regPassword}}"
+}
+
+### 2.2 Same request again -> 409 (slug or email already taken)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "restaurantName": "Test Cafe",
+  "slug": "{{regSlug}}",
+  "username": "owner one",
+  "email": "{{regEmail}}",
+  "password": "{{regPassword}}"
+}
+
+### 2.3 Same email, new slug -> 409 "Email already registered" (case-insensitive)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "restaurantName": "Another Cafe",
+  "slug": "another-cafe-xyz",
+  "username": "someone else",
+  "email": "{{regEmail}}",
+  "password": "{{regPassword}}"
+}
+
+### 2.4 Privilege escalation attempt: extra "roles" field -> 400 (strict schema)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "restaurantName": "Hacker Cafe",
+  "slug": "hacker-cafe",
+  "username": "hacker",
+  "email": "hacker@test.com",
+  "password": "Passw0rd!123",
+  "roles": "5150"
+}
+
+### 2.5 Reserved slug -> 400
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "restaurantName": "Admin Cafe",
+  "slug": "admin",
+  "username": "someone",
+  "email": "reserved@test.com",
+  "password": "Passw0rd!123"
+}
+
+### 2.6 Invalid slug format (uppercase/spaces/underscore) -> 400
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "restaurantName": "Bad Slug",
+  "slug": "Bad_Slug Here",
+  "username": "someone",
+  "email": "badslug@test.com",
+  "password": "Passw0rd!123"
+}
+
+### 2.7 Weak password (< 8 chars) -> 400
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "restaurantName": "Weak Cafe",
+  "slug": "weak-cafe",
+  "username": "someone",
+  "email": "weak@test.com",
+  "password": "123"
+}
+
+### 2.8 Uppercase email is normalized to lowercase -> 201 (change slug/email if already used)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "restaurantName": "Case Cafe",
+  "slug": "case-cafe-1",
+  "username": "case user",
+  "email": "CaseUser@Test.COM",
+  "password": "Passw0rd!123"
+}
+
+
+### =====================================================================
+### 3. LOGIN
+### =====================================================================
+
+### 3.1 Login -> 200 + accessToken + Set-Cookie: jwt (HttpOnly, Path=/api/auth)
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{regEmail}}",
+  "password": "{{regPassword}}"
+}
+
+### 3.2 Wrong password -> 401 "Invalid email or password"
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{regEmail}}",
+  "password": "wrong-password-123"
+}
+
+### 3.3 Unknown email -> 401 (same message + similar response time)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "nobody@nowhere.com",
+  "password": "whatever123"
+}
+
+### 3.4 Email in different case still logs in -> 200
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{regEmail}}",
+  "password": "{{regPassword}}"
+}
+
+### 3.5 Missing fields -> 400
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "not-an-email"
+}
+
+
+### =====================================================================
+### 4. VERIFY JWT middleware
+### =====================================================================
+
+### 4.1 No token -> 401
+GET {{baseUrl}}/api/user
+
+### 4.2 Garbage token -> 401
+GET {{baseUrl}}/api/user
+Authorization: Bearer abc.def.ghi
+
+### 4.3 Valid token -> 200, includes restaurant_name / restaurant_slug
+GET {{baseUrl}}/api/user
+Authorization: Bearer {{token}}
+
+
+### =====================================================================
+### 5. USER routes (need a valid token from 3.1)
+### =====================================================================
+
+### 5.1 Update profile -> 200
+PATCH {{baseUrl}}/api/user
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "owner updated"
+}
+
+### 5.2 Try to change role -> 400 (strict schema)
+PATCH {{baseUrl}}/api/user
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "roles": "5150"
+}
+
+### 5.3 Try to change avatar_url via profile update -> 400
+PATCH {{baseUrl}}/api/user
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "avatar_url": "https://evil.com/x.png"
+}
+
+### 5.4 Empty body -> 400
+PATCH {{baseUrl}}/api/user
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### 5.5 List active sessions -> 200
+# @name sessions
+GET {{baseUrl}}/api/user/sessions
+Authorization: Bearer {{token}}
+
+### 5.6 Sessions with sorting -> 200
+GET {{baseUrl}}/api/user/sessions?sortBy=created_at&sortOrder=DESC
+Authorization: Bearer {{token}}
+
+### 5.7 Invalid sortBy -> 400
+GET {{baseUrl}}/api/user/sessions?sortBy=password_hash
+Authorization: Bearer {{token}}
+
+### 5.8 Delete session with invalid UUID -> 400
+DELETE {{baseUrl}}/api/user/sessions/not-a-uuid
+Authorization: Bearer {{token}}
+
+### 5.9 Delete a random UUID (not yours) -> 404
+DELETE {{baseUrl}}/api/user/sessions/00000000-0000-4000-8000-000000000000
+Authorization: Bearer {{token}}
+
+### 5.10 Delete a session of YOURS (first in the list from 5.5)
+# WARNING: if it's your current session, the next requests fail with 401 until you login again.
+# To test safely: login twice (3.1 two times) then delete the OLDER one.
+DELETE {{baseUrl}}/api/user/sessions/{{sessions.response.body.$.data[0].id}}
+Authorization: Bearer {{token}}
+
+
+### =====================================================================
+### 6. REFRESH (rotation)
+### =====================================================================
+
+### 6.1 Refresh -> 200 + new accessToken + NEW cookie (old one is revoked)
+# @name refresh
+POST {{baseUrl}}/api/auth/refresh
+
+### 6.2 Use the new access token -> 200
+GET {{baseUrl}}/api/user
+Authorization: Bearer {{refresh.response.body.$.data}}
+
+### 6.3 Refresh again -> 200 (each call rotates the token)
+POST {{baseUrl}}/api/auth/refresh
+
+### 6.4 Refresh WITHOUT cookie -> 401
+# Sending an explicit empty Cookie header
+POST {{baseUrl}}/api/auth/refresh
+Cookie: 
+
+### 6.5 Refresh with a fake token -> 401
+POST {{baseUrl}}/api/auth/refresh
+Cookie: jwt=thisIsAFakeToken
+
+### 6.6 Token REUSE detection (manual, see steps below)
+# 1) Run 3.1 login, then open the Cookie panel / response headers and copy the jwt value => OLD
+# 2) Run 6.1 (rotates; OLD is now revoked)
+# 3) WAIT 11+ seconds (grace window)
+# 4) Replace OLD_TOKEN_HERE below and send:
+#    expected: 401, and ALL sessions of that user are revoked
+# 5) Then 4.3 must return 401 ("Session ended") even though the access token is still valid
+POST {{baseUrl}}/api/auth/refresh
+Cookie: jwt=OLD_TOKEN_HERE
+
+
+### =====================================================================
+### 7. AVATAR
+### =====================================================================
+
+### 7.1 Upload avatar -> 200 (put a small test.png next to this file)
+POST {{baseUrl}}/api/avatar
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="profileImage"; filename="test.png"
+Content-Type: image/png
+
+< ./test.png
+------Boundary--
+
+### 7.2 Upload without a file -> 400
+POST {{baseUrl}}/api/avatar
+Authorization: Bearer {{token}}
+
+### 7.3 Upload a non-image (e.g. a text file) -> 400
+POST {{baseUrl}}/api/avatar
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="profileImage"; filename="fake.png"
+Content-Type: image/png
+
+< ./api.http
+------Boundary--
+
+### 7.4 Upload without token -> 401
+POST {{baseUrl}}/api/avatar
+
+### 7.5 Set avatar from history: URL not in MY history -> 404
+PATCH {{baseUrl}}/api/avatar/previous
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "chosenAvatarUrl": "https://res.cloudinary.com/someone-else/image/upload/v1/x.webp"
+}
+
+### 7.6 Set avatar from history: use a URL from avatar_history in 4.3 (upload twice first)
+PATCH {{baseUrl}}/api/avatar/previous
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "chosenAvatarUrl": "PASTE_URL_FROM_avatar_history_HERE"
+}
+
+### 7.7 Delete avatar -> 200 (back to default)
+DELETE {{baseUrl}}/api/avatar
+Authorization: Bearer {{token}}
+
+### 7.8 Delete avatar again -> 400 (already default)
+DELETE {{baseUrl}}/api/avatar
+Authorization: Bearer {{token}}
+
+
+### =====================================================================
+### 8. CHANGE PASSWORD (run near the END: it revokes ALL sessions)
+### =====================================================================
+
+### 8.1 Wrong current password -> 400
+PATCH {{baseUrl}}/api/user/password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "currentPassword": "wrong-password",
+  "newPassword": "NewPassw0rd!456"
+}
+
+### 8.2 New password equals current -> 400
+PATCH {{baseUrl}}/api/user/password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "currentPassword": "{{$dotenv PASSWORD}}",
+  "newPassword": "{{$dotenv PASSWORD}}"
+}
+
+### 8.3 Change password -> 200, cookie cleared, ALL sessions deleted
+# After this, update PASSWORD in .env (or change it back) before the next login.
+PATCH {{baseUrl}}/api/user/password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "currentPassword": "{{$dotenv PASSWORD}}",
+  "newPassword": "NewPassw0rd!456"
+}
+
+### 8.4 Old access token right after -> 401 (no active session)
+GET {{baseUrl}}/api/user
+Authorization: Bearer {{token}}
+
+
+### =====================================================================
+### 9. LOGOUT
+### =====================================================================
+
+### 9.1 Logout -> 204 + cookie cleared
+POST {{baseUrl}}/api/auth/logout
+
+### 9.2 Refresh after logout -> 401
+POST {{baseUrl}}/api/auth/refresh
+
+### 9.3 Logout again without cookie -> 204 (idempotent)
+POST {{baseUrl}}/api/auth/logout
+
+### 9.4 Access token still valid by time, but no session -> 401
+GET {{baseUrl}}/api/user
+Authorization: Bearer {{token}}
+
+### =====================================================================
+### 10. CATEGORIES (use the token of restaurant A = owner1)
+### =====================================================================
+
+### 10.1 Create -> 201 (display_order auto = 0)
+# @name catA
+POST {{baseUrl}}/api/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Hot Drinks" }
+
+### 10.2 Create second -> 201 (display_order auto = 1)
+POST {{baseUrl}}/api/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Desserts" }
+
+### 10.3 Duplicate name, different case -> 409
+POST {{baseUrl}}/api/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "hot drinks" }
+
+### 10.4 Client tries to inject restaurant_id -> 400 (strict schema)
+POST {{baseUrl}}/api/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Hack", "restaurant_id": "00000000-0000-4000-8000-000000000000" }
+
+### 10.5 Empty / too long name -> 400
+POST {{baseUrl}}/api/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "   " }
+
+### 10.6 List -> 200 with items_count
+GET {{baseUrl}}/api/categories
+Authorization: Bearer {{token}}
+
+### 10.7 Get by id -> 200
+GET {{baseUrl}}/api/categories/{{catA.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+
+### 10.8 Invalid uuid -> 400
+GET {{baseUrl}}/api/categories/not-a-uuid
+Authorization: Bearer {{token}}
+
+### 10.9 Update name -> 200
+PATCH {{baseUrl}}/api/categories/{{catA.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Hot Beverages" }
+
+### 10.10 Empty update body -> 400
+PATCH {{baseUrl}}/api/categories/{{catA.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### 10.11 Reorder (paste the ids from 10.6, swapped) -> 200
+PATCH {{baseUrl}}/api/categories/reorder
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "ids": ["e4366a2b-b9ac-4ef3-ac6d-b96311d6f820", "c17bbb60-65b2-4fc8-b3fc-7619d39edab4"] }
+
+### 10.12 Reorder with duplicate ids -> 400
+PATCH {{baseUrl}}/api/categories/reorder
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "ids": ["e4366a2b-b9ac-4ef3-ac6d-b96311d6f820", "c17bbb60-65b2-4fc8-b3fc-7619d39edab4"] }
+
+### 10.13 Reorder with unknown id -> 404 (and nothing changes)
+PATCH {{baseUrl}}/api/categories/reorder
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "ids": ["e4366a2b-b9ac-4ef3-ac6d-b96311d6f820", "00000000-0000-4000-8000-000000000000"] }
+
+### 10.14 Delete -> 200 (Admin only)
+DELETE {{baseUrl}}/api/categories/{{catA.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+
+### 10.15 No token -> 401
+GET {{baseUrl}}/api/categories
+
+
+### =====================================================================
+### 11. TENANT ISOLATION (the most important tests)
+### Login as owner2 (restaurant B) and put his token in @tokenB.
+### CAT_A_ID = a category id that belongs to restaurant A.
+### EVERYTHING below must answer 404, never 200/403.
+### =====================================================================
+@tokenB = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0YzYwMGUzNi1mMjQwLTRjZmEtYTkyZC00ZjM1MjhiZTJhMTgiLCJzaWQiOiIzMWUzYzc1MS01NjNlLTQ3Y2MtYjc5Zi1hMDI4ZGM4NDhkNzciLCJpYXQiOjE3OTMyMzU0NTksImV4cCI6MTc5MzIzNjM1OX0.JaFDxgi2moYfb97OiXTkV6HhBphIV-zIfpJhN2Lb5EY
+@catAId = c17bbb60-65b2-4fc8-b3fc-7619d39edab4
+
+### 11.1 B lists categories -> 200 and must NOT contain A's categories
+GET {{baseUrl}}/api/categories
+Authorization: Bearer {{tokenB}}
+
+### 11.2 B reads A's category -> 404
+GET {{baseUrl}}/api/categories/{{catAId}}
+Authorization: Bearer {{tokenB}}
+
+### 11.3 B updates A's category -> 404
+PATCH {{baseUrl}}/api/categories/{{catAId}}
+Authorization: Bearer {{tokenB}}
+Content-Type: application/json
+
+{ "name": "Pwned" }
+
+### 11.4 B deletes A's category -> 404
+DELETE {{baseUrl}}/api/categories/{{catAId}}
+Authorization: Bearer {{tokenB}}
+
+### 11.5 B reorders including A's id -> 404
+PATCH {{baseUrl}}/api/categories/reorder
+Authorization: Bearer {{tokenB}}
+Content-Type: application/json
+
+{ "ids": ["{{catAId}}"] }
+
+### 11.6 B creates the SAME name as A has -> 201 (names are unique per restaurant only)
+POST {{baseUrl}}/api/categories
+Authorization: Bearer {{tokenB}}
+Content-Type: application/json
+
+{ "name": "Desserts" }
+
+
+### =====================================================================
+### 12. MENU ITEMS (restaurant A = owner1)
+### =====================================================================
+@catId = PASTE_A_CATEGORY_ID_OF_RESTAURANT_A
+
+### 12.1 Create -> 201 (price is a NUMBER, no restaurant_id in response)
+# @name itemA
+POST {{baseUrl}}/api/menu-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "category_id": "{{catId}}", "title": "Latte", "description": "Milk + espresso", "price": 55.5 }
+
+### 12.2 Same title in same category, different case -> 409
+POST {{baseUrl}}/api/menu-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "category_id": "{{catId}}", "title": "latte", "price": 10 }
+
+### 12.3 Injection attempts: restaurant_id / image_url / display_order -> 400 (strict)
+POST {{baseUrl}}/api/menu-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "category_id": "{{catId}}", "title": "Hack", "price": 1, "image_url": "https://evil.com/x.png" }
+
+### 12.4 Bad price: negative / 3 decimals / string -> 400
+POST {{baseUrl}}/api/menu-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "category_id": "{{catId}}", "title": "Bad", "price": 10.999 }
+
+### 12.5 Unknown category -> 404
+POST {{baseUrl}}/api/menu-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "category_id": "00000000-0000-4000-8000-000000000000", "title": "Ghost", "price": 10 }
+
+### 12.6 List with filters -> 200
+GET {{baseUrl}}/api/menu-items?category_id={{catId}}&is_available=true
+Authorization: Bearer {{token}}
+
+### 12.7 Invalid filter -> 400
+GET {{baseUrl}}/api/menu-items?is_available=maybe
+Authorization: Bearer {{token}}
+
+### 12.8 Get by id -> 200
+GET {{baseUrl}}/api/menu-items/{{itemA.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+
+### 12.9 Update price + clear description -> 200
+PATCH {{baseUrl}}/api/menu-items/{{itemA.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "price": 60, "description": null }
+
+### 12.10 Move to another category of the same restaurant -> 200 (goes to the end)
+PATCH {{baseUrl}}/api/menu-items/{{itemA.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "category_id": "PASTE_ANOTHER_CATEGORY_ID_OF_A" }
+
+### 12.11 Out of stock toggle -> 200
+PATCH {{baseUrl}}/api/menu-items/{{itemA.response.body.$.data.id}}/availability
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "is_available": false }
+
+### 12.12 Reorder items of ONE category (paste ids from 12.6, swapped) -> 200
+PATCH {{baseUrl}}/api/menu-items/reorder
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "category_id": "{{catId}}", "ids": ["ID_2_HERE", "ID_1_HERE"] }
+
+### 12.13 Reorder with an item from ANOTHER category -> 404, nothing changes
+PATCH {{baseUrl}}/api/menu-items/reorder
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "category_id": "{{catId}}", "ids": ["ID_OF_ITEM_IN_OTHER_CATEGORY"] }
+
+### 12.14 Upload image -> 200 (stored under restaurants/<id>/menu)
+POST {{baseUrl}}/api/menu-items/{{itemA.response.body.$.data.id}}/image
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="image"; filename="test.png"
+Content-Type: image/png
+
+< ./test.png
+------Boundary--
+
+### 12.15 Upload again -> 200 (the OLD image must disappear from Cloudinary)
+### 12.16 Delete image -> 200, then again -> 400 "This item has no image"
+DELETE {{baseUrl}}/api/menu-items/{{itemA.response.body.$.data.id}}/image
+Authorization: Bearer {{token}}
+
+### 12.17 Delete item -> 200
+DELETE {{baseUrl}}/api/menu-items/{{itemA.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+
+
+### =====================================================================
+### 13. TENANT ISOLATION (restaurant B = caseuser). Everything must be 404
+### =====================================================================
+@itemAId = 05a2bea9-8eb0-4eab-a7a4-a2941fdebd71
+
+### 13.1 B lists items -> 200, must NOT contain A's items
+GET {{baseUrl}}/api/menu-items
+Authorization: Bearer {{tokenB}}
+
+### 13.2 B reads A's item -> 404
+GET {{baseUrl}}/api/menu-items/{{itemAId}}
+Authorization: Bearer {{tokenB}}
+
+### 13.3 B updates A's item -> 404
+PATCH {{baseUrl}}/api/menu-items/{{itemAId}}
+Authorization: Bearer {{tokenB}}
+Content-Type: application/json
+
+{ "price": 1 }
+
+### 13.4 B toggles / deletes A's item -> 404
+DELETE {{baseUrl}}/api/menu-items/{{itemAId}}
+Authorization: Bearer {{tokenB}}
+
+### 13.5 B uploads an image to A's item -> 404 (and NOTHING is uploaded to Cloudinary)
+### 13.6 B creates an item in A's category -> 404
+POST {{baseUrl}}/api/menu-items
+Authorization: Bearer {{tokenB}}
+Content-Type: application/json
+
+{ "category_id": "{{catId}}", "title": "Pwned", "price": 1 }
+
+### 13.7 B moves HIS item into A's category -> 404
+PATCH {{baseUrl}}/api/menu-items/PASTE_ITEM_ID_OF_B
+Authorization: Bearer {{tokenB}}
+Content-Type: application/json
+
+{ "category_id": "{{catId}}" }
+
+### =====================================================================
+### 14. PUBLIC MENU (no Authorization header at all)
+### =====================================================================
+
+### 14.1 Existing slug -> 200, categories in order, items with numeric price
+GET {{baseUrl}}/api/public/menu/test-cafe-1
+
+### 14.2 Check the headers: Cache-Control: public, max-age=60, s-maxage=300, ...
+### 14.3 Unknown slug -> 404
+GET {{baseUrl}}/api/public/menu/no-such-cafe
+
+### 14.4 Invalid slug (uppercase is lowercased; underscore/space) -> 400
+GET {{baseUrl}}/api/public/menu/bad_slug
+
+### 14.5 Restaurant with categories but NO items -> 200 with "categories": []
+GET {{baseUrl}}/api/public/menu/case-cafe-1
+
+### =====================================================================
+### 15. STAFF MANAGEMENT
+### @token = owner1 (Admin A) | @tokenEditor = editor1 | @tokenViewer = user1 | @tokenB = caseuser (Admin B)
+### =====================================================================
+@tokenEditor = PASTE_TOKEN_OF_EDITOR1
+@tokenViewer = PASTE_TOKEN_OF_USER1
+@adminId = PASTE_ID_OF_OWNER1_FROM_GET_API_USER
+
+### 15.1 Admin lists staff -> 200: admin first, then editor, then viewer. No password_hash, no restaurant_id
+GET {{baseUrl}}/api/staff
+Authorization: Bearer {{token}}
+
+### 15.2 Editor lists staff -> 403
+GET {{baseUrl}}/api/staff
+Authorization: Bearer {{tokenEditor}}
+
+### 15.3 Viewer lists staff -> 403
+GET {{baseUrl}}/api/staff
+Authorization: Bearer {{tokenViewer}}
+
+### 15.4 Editor tries to add a staff member -> 403
+POST {{baseUrl}}/api/staff
+Authorization: Bearer {{tokenEditor}}
+Content-Type: application/json
+
+{ "username": "sneaky", "email": "sneaky@test.com", "password": "Passw0rd!123", "roles": "1984" }
+
+### 15.5 Admin adds an Editor -> 201
+# @name newStaff
+POST {{baseUrl}}/api/staff
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "username": "editor two", "email": "editor2@test.com", "password": "Passw0rd!123", "roles": "1984" }
+
+### 15.6 Duplicate email (any case) -> 409
+POST {{baseUrl}}/api/staff
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "username": "another name", "email": "EDITOR2@test.com", "password": "Passw0rd!123", "roles": "2001" }
+
+### 15.7 Duplicate username in the same restaurant -> 409
+POST {{baseUrl}}/api/staff
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "username": "editor two", "email": "other@test.com", "password": "Passw0rd!123", "roles": "2001" }
+
+### 15.8 Try to create an Admin -> 400 (enum allows 1984 / 2001 only)
+POST {{baseUrl}}/api/staff
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "username": "second admin", "email": "admin2@test.com", "password": "Passw0rd!123", "roles": "5150" }
+
+### 15.9 Inject restaurant_id -> 400 (strict)
+POST {{baseUrl}}/api/staff
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "username": "x user", "email": "x@test.com", "password": "Passw0rd!123", "roles": "1984", "restaurant_id": "00000000-0000-4000-8000-000000000000" }
+
+### 15.10 Weak password -> 400
+POST {{baseUrl}}/api/staff
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "username": "weak user", "email": "weak2@test.com", "password": "123", "roles": "2001" }
+
+### 15.11 Change the new staff role Editor -> Viewer -> 200
+PATCH {{baseUrl}}/api/staff/{{newStaff.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "roles": "2001" }
+
+### 15.12 Change role to Admin -> 400
+PATCH {{baseUrl}}/api/staff/{{newStaff.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "roles": "5150" }
+
+### 15.13 Admin changes HIS OWN role -> 403
+PATCH {{baseUrl}}/api/staff/{{adminId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "roles": "2001" }
+
+### 15.14 Admin deletes HIMSELF -> 403
+DELETE {{baseUrl}}/api/staff/{{adminId}}
+Authorization: Bearer {{token}}
+
+### 15.15 Invalid uuid -> 400
+DELETE {{baseUrl}}/api/staff/not-a-uuid
+Authorization: Bearer {{token}}
+
+### 15.16 Delete the new staff member -> 200
+DELETE {{baseUrl}}/api/staff/{{newStaff.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+
+### 15.17 Delete him again -> 404
+DELETE {{baseUrl}}/api/staff/{{newStaff.response.body.$.data.id}}
+Authorization: Bearer {{token}}
+
+
+### =====================================================================
+### 16. TENANT ISOLATION for staff (B = caseuser). Everything must be 404
+### =====================================================================
+@staffAId = PASTE_ID_OF_editor1_FROM_15.1
+
+### 16.1 B lists staff -> 200, must show ONLY caseuser
+GET {{baseUrl}}/api/staff
+Authorization: Bearer {{tokenB}}
+
+### 16.2 B changes A's staff role -> 404
+PATCH {{baseUrl}}/api/staff/{{staffAId}}
+Authorization: Bearer {{tokenB}}
+Content-Type: application/json
+
+{ "roles": "2001" }
+
+### 16.3 B deletes A's staff -> 404
+DELETE {{baseUrl}}/api/staff/{{staffAId}}
+Authorization: Bearer {{tokenB}}
+
+### 16.4 B creates staff -> 201, and he belongs to B (check GET 16.1)
+POST {{baseUrl}}/api/staff
+Authorization: Bearer {{tokenB}}
+Content-Type: application/json
+
+{ "username": "editor two", "email": "editorb@test.com", "password": "Passw0rd!123", "roles": "1984" }
+
+
+### 17. RESTAURANT
+GET {{baseUrl}}/api/restaurant
+Authorization: Bearer {{token}}
+
+### 17.2 Update name -> 200 (slug unchanged)
+PATCH {{baseUrl}}/api/restaurant
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Test Cafe Updated" }
+
+### 17.3 Try to change slug -> 400 (strict)
+PATCH {{baseUrl}}/api/restaurant
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "slug": "new-slug" }
+
+### 17.4 Editor / Viewer edit -> 403
+PATCH {{baseUrl}}/api/restaurant
+Authorization: Bearer {{tokenEditor}}
+Content-Type: application/json
+
+{ "name": "Hacked" }
+
+### 17.5 Upload logo -> 200 (restaurants/<id>/logo), then GET /api/public/menu/test-cafe-1 shows it
+POST {{baseUrl}}/api/restaurant/logo
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="logo"; filename="test.png"
+Content-Type: image/png
+
+< ./test.png
+------Boundary--
+
+### 17.6 Delete logo -> 200, again -> 400
+DELETE {{baseUrl}}/api/restaurant/logo
+Authorization: Bearer {{token}}
