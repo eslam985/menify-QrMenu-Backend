@@ -27,9 +27,9 @@ const handleGetRestaurant: RequestHandler = async (req, res, next) => {
 
 const handleUpdateRestaurant: RequestHandler = async (req, res, next) => {
   try {
-    const { name } = req.body as UpdateRestaurantType["body"];
+    const body = req.body as UpdateRestaurantType["body"];
 
-    const restaurant = await Restaurant.updateName(getRestaurantId(req), name);
+    const restaurant = await Restaurant.update(getRestaurantId(req), body);
     if (!restaurant) throw new CustomError(NOT_FOUND, 404);
 
     res.status(200).json({ success: true, message: "Restaurant updated", data: restaurant });

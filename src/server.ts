@@ -37,6 +37,7 @@ import publicMenuRouter from "#src/routes/api/public/menu.js";
 import { publicLimiter } from "#src/config/rateLimiter.js";
 import staffRouter from "#src/routes/api/data/staff.js";
 import restaurantRouter from "#src/routes/api/data/restaurant.js";
+import offersRouter from "#src/routes/api/data/offers.js";
 
 
 const PORT: number = toNumber(process.env.PORT) || 3000;
@@ -72,6 +73,8 @@ app.use("/api/categories", verifyJWT, categoriesRouter);
 app.use("/api/menu-items", verifyJWT, menuItemsRouter);
 app.use("/api/staff", verifyJWT, staffRouter);
 app.use("/api/restaurant", verifyJWT, restaurantRouter);
+app.use("/api/offers", verifyJWT, offersRouter);
+
 
 // Unknown routes now return 404 for everyone (not 401)
 app.use(notFound);

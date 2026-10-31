@@ -205,6 +205,80 @@ CREATE POLICY "public read menu_items" ON public.menu_items
 -- All writes + user access go through the backend using the service_role key
 -- (which bypasses RLS).
 
+
+-- Needed for the composite FK from offer_items (tenant safety, same pattern as categories)
+ALTER TABLE public.menu_items
+  ADD CONSTRAINT menu_items_id_restaurant_key UNIQUE (id, restaurant_id);
+
+-- ---------------------------------------------------------------------
+-- offers
+-- ---------------------------------------------------------------------
+CREATE TABLE public.offers (
+    id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    restaurant_id  UUID          NOT NULL
+                   REFERENCES public.restaurants (id) ON DELETE CASCADE,
+    title          VARCHAR(150)  NOT NULL,
+    description    VARCHAR(1000),
+    image_url      TEXT,                          -- written only by the upload endpoint
+    offer_price    NUMERIC(10,2),                 -- NULL = announcement without a price
+    starts_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    ends_at        TIMESTAMPTZ   NOT NULL,        -- what makes it an "offer"
+    is_active      BOOLEAN       NOT NULL DEFAULT TRUE,
+    created_at     TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ   NOT NULL DEFAULT now(),
+
+    CONSTRAINT offers_id_restaurant_key UNIQUE (id, restaurant_id),
+    CONSTRAINT offers_price_check CHECK (offer_price IS NULL OR offer_price >= 0),
+    CONSTRAINT offers_dates_check CHECK (ends_at > starts_at)
+);
+
+-- Public query: this restaurant's offers by end date
+CREATE INDEX idx_offers_restaurant_ends ON public.offers (restaurant_id, ends_at);
+
+CREATE TRIGGER trg_offers_updated_at
+  BEFORE UPDATE ON public.offers
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- ---------------------------------------------------------------------
+-- offer_items: a real menu item OR a free text line (exactly one)
+-- ---------------------------------------------------------------------
+CREATE TABLE public.offer_items (
+    id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    offer_id       UUID         NOT NULL,
+    restaurant_id  UUID         NOT NULL,
+    menu_item_id   UUID,
+    custom_label   VARCHAR(150),
+    quantity       INT          NOT NULL DEFAULT 1,
+    display_order  INT          NOT NULL DEFAULT 0,
+
+    CONSTRAINT offer_items_kind_check
+        CHECK ((menu_item_id IS NOT NULL) <> (custom_label IS NOT NULL)),
+    CONSTRAINT offer_items_quantity_check CHECK (quantity BETWEEN 1 AND 99),
+
+    -- both parents must belong to the SAME restaurant (a NULL menu_item_id skips this check)
+    CONSTRAINT offer_items_offer_tenant_fkey
+        FOREIGN KEY (offer_id, restaurant_id)
+        REFERENCES public.offers (id, restaurant_id) ON DELETE CASCADE,
+    CONSTRAINT offer_items_item_tenant_fkey
+        FOREIGN KEY (menu_item_id, restaurant_id)
+        REFERENCES public.menu_items (id, restaurant_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_offer_items_offer_id ON public.offer_items (offer_id);
+CREATE INDEX idx_offer_items_menu_item_id ON public.offer_items (menu_item_id);
+
+-- the same menu item can't appear twice in one offer (use quantity instead)
+CREATE UNIQUE INDEX offer_items_offer_menu_item_key
+  ON public.offer_items (offer_id, menu_item_id) WHERE menu_item_id IS NOT NULL;
+
+-- Backend only (same as users/sessions): no policies
+ALTER TABLE public.offers      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.offer_items ENABLE ROW LEVEL SECURITY;
+
+
+
+
+
   SELECT cron.schedule('cleanup-sessions', '0 3 * * *',
     $$DELETE FROM public.sessions WHERE expires_at < now() OR revoked_at < now() - interval '7 days'$$);
 

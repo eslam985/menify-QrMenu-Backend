@@ -8,19 +8,17 @@ import type {
   DeleteCategoryResult,
 } from "#src/types/dataType/categoryType.js";
 
-const COLUMNS = `id, name, display_order, created_at, updated_at`;
-
 // Only these keys can ever reach the SET clause (the keys are interpolated into SQL)
-const UPDATABLE_COLUMNS = ["name", "display_order"] as const;
-
+const COLUMNS = `id, name, section, display_order, created_at, updated_at`;
+const UPDATABLE_COLUMNS = ["name", "section", "display_order"] as const;
 const NAME_CONFLICT = "A category with this name already exists";
 
 // Every query below has `restaurant_id = $x`. A record of another tenant behaves as "not found".
 const Category = {
   async findAll(restaurantId: string): Promise<CategoryWithCountResponse[]> {
     const result = await pool.query(
-      `SELECT c.id, c.name, c.display_order, c.created_at, c.updated_at,
-              count(m.id)::int AS items_count
+      `SELECT c.id, c.name, c.section, c.display_order, c.created_at, c.updated_at,
+        count(m.id)::int AS items_count
        FROM categories c
        LEFT JOIN menu_items m
               ON m.category_id = c.id AND m.restaurant_id = c.restaurant_id
@@ -41,18 +39,19 @@ const Category = {
   },
 
   /** display_order omitted => appended after the last category of this restaurant */
-  async create({ restaurantId, name, displayOrder }: CreateCategoryInput): Promise<CategoryResponse> {
+  async create({ restaurantId, name, displayOrder, section }: CreateCategoryInput): Promise<CategoryResponse> {
     try {
       const result = await pool.query(
-        `INSERT INTO categories (restaurant_id, name, display_order)
-         VALUES (
-           $1, $2,
-           COALESCE($3::int, (SELECT COALESCE(MAX(display_order) + 1, 0)
+        `INSERT INTO categories (restaurant_id, name, section, display_order)
+        VALUES (
+          $1, $2, $4,
+          COALESCE($3::int, (SELECT COALESCE(MAX(display_order) + 1, 0)
                               FROM categories WHERE restaurant_id = $1))
-         )
-         RETURNING ${COLUMNS}`,
-        [restaurantId, name, displayOrder ?? null],
+        )
+        RETURNING ${COLUMNS}`,
+        [restaurantId, name, displayOrder ?? null, section],
       );
+
       return result.rows[0];
     } catch (err: any) {
       if (err.code === "23505") throw new CustomError(NAME_CONFLICT, 409);

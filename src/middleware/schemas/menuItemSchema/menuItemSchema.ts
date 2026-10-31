@@ -125,6 +125,7 @@ export {
   setAvailabilitySchema,
   itemIdSchema,
   reorderMenuItemsSchema,
+  priceField,
 };
 
 export type ListMenuItemsType = z.infer<typeof listMenuItemsSchema>;

@@ -42,14 +42,14 @@ const handleGetCategoryById: RequestHandler = async (req, res, next) => {
 
 const handleCreateCategory: RequestHandler = async (req, res, next) => {
   try {
-    const { name, display_order } = req.body as CreateCategoryType["body"];
+    const { name, section, display_order } = req.body as CreateCategoryType["body"];
 
     const category = await Category.create({
-      restaurantId: getRestaurantId(req), // from the DB via verifyJWT, never from the body
+      restaurantId: getRestaurantId(req),
       name,
+      section,
       displayOrder: display_order,
     });
-
     res.status(201).json({ success: true, message: "Category created", data: category });
   } catch (err) {
     next(err);

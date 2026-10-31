@@ -1,7 +1,21 @@
 import pool from "#src/config/dbConn.js";
-import type { RestaurantResponse, SetLogoResult } from "#src/types/dataType/restaurantType.js";
 
-const COLUMNS = `id, name, slug, logo_url, created_at`;
+import { CustomError } from "#src/utils/customErr.js";
+import type {
+  RestaurantResponse,
+  SetLogoResult,
+  UpdateRestaurantInput,
+} from "#src/types/dataType/restaurantType.js";
+
+const COLUMNS = `id, name, slug, logo_url, description, phone, whatsapp, address, maps_url,
+  instagram_url, facebook_url, currency, timezone, working_hours,
+  status, subscription_ends_at, created_at`;
+
+// Only these keys can reach the SET clause (the keys are interpolated into SQL)
+const UPDATABLE_COLUMNS = [
+  "name", "description", "phone", "whatsapp", "address", "maps_url",
+  "instagram_url", "facebook_url", "currency", "timezone", "working_hours",
+] as const;
 
 // The id always comes from req.restaurantId, so a user can only ever touch his own restaurant
 const Restaurant = {
@@ -10,10 +24,25 @@ const Restaurant = {
     return result.rows[0] || null;
   },
 
-  async updateName(id: string, name: string): Promise<RestaurantResponse | null> {
+    async update(id: string, data: UpdateRestaurantInput): Promise<RestaurantResponse | null> {
+    const entries = Object.entries(data).filter(
+      ([k, v]) => v !== undefined && (UPDATABLE_COLUMNS as readonly string[]).includes(k),
+    );
+    if (entries.length === 0) throw new CustomError("No valid data provided!", 400);
+
+    const setter = entries
+      .map(([k, v], i) =>
+        // a JS object must go in as a JSON string; a real null stays an SQL NULL
+        k === "working_hours" && v !== null ? `${k} = $${i + 2}::jsonb` : `${k} = $${i + 2}`,
+      )
+      .join(", ");
+    const values = entries.map(([k, v]) =>
+      k === "working_hours" && v !== null ? JSON.stringify(v) : v,
+    );
+
     const result = await pool.query(
-      `UPDATE restaurants SET name = $2 WHERE id = $1 RETURNING ${COLUMNS}`,
-      [id, name],
+      `UPDATE restaurants SET ${setter} WHERE id = $1 RETURNING ${COLUMNS}`,
+      [id, ...values],
     );
     return result.rows[0] || null;
   },

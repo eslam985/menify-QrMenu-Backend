@@ -17,6 +17,7 @@ if (process.env.NODE_ENV !== "production") {
     "http://192.168.1.105:5173",
     "http://localhost:5173",
     "http://192.168.12.1:4173",
+    "http://localhost:3001"
   );
   console.log(allowedOrigins);
 }

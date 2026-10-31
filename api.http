@@ -509,7 +509,37 @@ Authorization: Bearer {{token}}
 
 ### 10.15 No token -> 401
 GET {{baseUrl}}/api/categories
+### 19. CATEGORY SECTIONS
+### 19.1 Create without section -> 201, section = "food"
+POST {{baseUrl}}/api/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
 
+{ "name": "Pasta" }
+
+### 19.2 Create with section -> 201
+POST {{baseUrl}}/api/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Cold Drinks", "section": "drinks" }
+
+### 19.3 Invalid section -> 400
+POST {{baseUrl}}/api/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Weird", "section": "kitchen" }
+
+### 19.4 Move a category to another section -> 200
+PATCH {{baseUrl}}/api/categories/{{catId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "section": "desserts" }
+
+### 19.5 Public menu: every category has "section" -> 200
+GET {{baseUrl}}/api/public/menu/test-cafe-1
 
 ### =====================================================================
 ### 11. TENANT ISOLATION (the most important tests)
@@ -719,7 +749,53 @@ GET {{baseUrl}}/api/public/menu/bad_slug
 
 ### 14.5 Restaurant with categories but NO items -> 200 with "categories": []
 GET {{baseUrl}}/api/public/menu/case-cafe-1
+### 18. RESTAURANT DETAILS
+### 18.1 Full update -> 200
+PATCH {{baseUrl}}/api/restaurant
+Authorization: Bearer {{token}}
+Content-Type: application/json
 
+{
+  "description": "أفضل قهوة في المدينة",
+  "phone": "+20 100 123 4567",
+  "whatsapp": "01001234567",
+  "address": "12 شارع التحرير، الجيزة",
+  "maps_url": "https://maps.google.com/?q=30.0131,31.2089",
+  "instagram_url": "https://instagram.com/testcafe",
+  "currency": "egp",
+  "working_hours": {
+    "sat": { "open": "09:00", "close": "23:00" },
+    "sun": { "open": "09:00", "close": "23:00" },
+    "mon": null,
+    "tue": { "open": "18:00", "close": "02:00" },
+    "wed": { "open": "09:00", "close": "23:00" },
+    "thu": { "open": "09:00", "close": "23:00" },
+    "fri": { "open": "14:00", "close": "23:00" }
+  }
+}
+
+### 18.2 Clear a field with null -> 200
+PATCH {{baseUrl}}/api/restaurant
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "instagram_url": null }
+
+### 18.3 Bad values -> 400 (one request per case)
+# { "phone": "abc" }  |  { "maps_url": "http://insecure.com" }  |  { "maps_url": "javascript:alert(1)" }
+# { "currency": "EGPP" }  |  { "timezone": "Mars/Base" }  |  { "address": "" }
+# working_hours with a missing day, "25:00", or open == close
+
+### 18.4 Try slug / logo_url / status / subscription_ends_at -> 400 (strict)
+PATCH {{baseUrl}}/api/restaurant
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "status": "active" }
+
+### 18.5 Editor -> 403
+### 18.6 Public menu shows the new fields (and NO status / id / subscription_ends_at)
+GET {{baseUrl}}/api/public/menu/test-cafe-1
 ### =====================================================================
 ### 15. STAFF MANAGEMENT
 ### @token = owner1 (Admin A) | @tokenEditor = editor1 | @tokenViewer = user1 | @tokenB = caseuser (Admin B)

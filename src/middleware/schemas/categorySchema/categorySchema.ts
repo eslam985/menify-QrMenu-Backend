@@ -20,6 +20,9 @@ const categoryIdParams = z.object({
   categoryId: z.uuid("معرّف التصنيف غير صالح"),
 });
 
+const sectionField = z.enum(["food", "drinks", "desserts", "other"], {
+  error: "القسم يجب أن يكون food أو drinks أو desserts أو other",
+});
 // ---------------------------------------------------------------
 // POST /api/categories
 // restaurant_id is NEVER accepted from the client (it comes from req.restaurantId)
@@ -28,6 +31,7 @@ const categoryIdParams = z.object({
 const createCategorySchema = z.object({
   body: z.strictObject({
     name: nameField,
+    section: sectionField.default("food"),   // new
     display_order: displayOrderField.optional(),
   }),
 });
@@ -41,6 +45,7 @@ const updateCategorySchema = z.object({
     .strictObject({
       name: nameField.optional(),
       display_order: displayOrderField.optional(),
+      section: sectionField.optional(),  
     })
     .refine((d) => Object.keys(d).length > 0, {
       message: "يجب إرسال حقل واحد على الأقل للتحديث",
