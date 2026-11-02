@@ -23,18 +23,13 @@ import corsOptions from "#src/config/corsOptions.js";
 import notFound from "#src/middleware/notFound.js";
 import pool from "#src/config/dbConn.js";
 import {
-  burstLimiter,
-  generalLimiter,
-  healthLimiter,
-  loginLimiter,
-  registerLimiter,
-  refreshLimiter,
+  burstLimiter, generalLimiter, healthLimiter, publicBurstLimiter, publicLimiter,
+  loginLimiter, registerLimiter, refreshLimiter,
 } from "#src/config/rateLimiter.js";
 import { toNumber } from "./utils/paramAndQueryHelpes.js";
 import categoriesRouter from "#src/routes/api/data/categories.js";
 import menuItemsRouter from "#src/routes/api/data/menuItems.js";
 import publicMenuRouter from "#src/routes/api/public/menu.js";
-import { publicLimiter } from "#src/config/rateLimiter.js";
 import staffRouter from "#src/routes/api/data/staff.js";
 import restaurantRouter from "#src/routes/api/data/restaurant.js";
 import offersRouter from "#src/routes/api/data/offers.js";
@@ -47,10 +42,8 @@ app.use(helmet());
 app.use(cors(corsOptions)); // must allow credentials: true for the refresh cookie
 
 app.use("/api/health", healthLimiter, healthRouter);
-// Public menu BEFORE burst/general limiters: a whole café shares ONE IP
-app.use("/api/public/menu", publicLimiter, publicMenuRouter);
-// Public menu BEFORE burst/general limiters (we'll add it in the next step):
-// app.use("/api/public", publicLimiter, publicMenuRouter);
+// Public menu BEFORE burst/general limiters: those would block a whole café behind one IP
+app.use("/api/public/menu", publicBurstLimiter, publicLimiter, publicMenuRouter);
 
 app.use(burstLimiter);
 app.use(generalLimiter);

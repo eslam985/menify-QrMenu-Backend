@@ -16,6 +16,14 @@ const burstLimiter = rateLimit({
   limit: 15,
   message: msg("Too many rapid requests, please slow down"),
 });
+// Public menu. In production the CDN answers repeated requests, so only cache MISSES reach
+// this server. That's why these limits can be much lower than "all the customers of a café".
+const publicBurstLimiter = rateLimit({
+  ...base,
+  windowMs: 10 * 1000,
+  limit: 40,
+  message: msg("Too many requests, please slow down"),
+});
 
 const generalLimiter = rateLimit({
   ...base,
@@ -36,10 +44,9 @@ const healthLimiter = rateLimit({
 const publicLimiter = rateLimit({
   ...base,
   windowMs: 60 * 1000,
-  limit: 600,
+  limit: 200,
   message: msg("Too many requests"),
 });
-
 // Login: successful logins don't count, so legit users are never locked out
 const loginLimiter = rateLimit({
   ...base,
@@ -103,5 +110,6 @@ export {
   refreshLimiter,
   uploadLimiter,
   menuImageLimiter,
-  staffCreateLimiter
+  staffCreateLimiter,
+  publicBurstLimiter
 };

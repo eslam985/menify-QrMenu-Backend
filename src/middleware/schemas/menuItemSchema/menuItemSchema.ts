@@ -21,7 +21,7 @@ const descriptionField = z
 // Max 2 decimals, matches NUMERIC(10,2). The epsilon avoids float noise (e.g. 1.1 * 100).
 const priceField = z
   .number({ error: "السعر يجب أن يكون رقماً" })
-  .min(0, "السعر لا يمكن أن يكون سالباً")
+  .min(1, "السعر لا يمكن أن يكون سالباً او صفر")
   .max(1_000_000, "السعر كبير جداً")
   .refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6, {
     message: "السعر يجب ألا يتجاوز خانتين عشريتين",

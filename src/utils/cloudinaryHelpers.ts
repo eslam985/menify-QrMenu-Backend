@@ -51,14 +51,24 @@ export const uploadImageBuffer = (
         {
           folder,
           resource_type: "image",
-          allowed_formats: ["jpg", "jpeg", "png", "webp"], // checks the real file content
-          format: "webp",
+          allowed_formats: ["jpg", "jpeg", "png", "webp", "avif"],
+          format: "avif",
           quality: "auto:good",
           transformation: [{ width: maxSize, height: maxSize, crop: "limit" }],
         },
         (error, result) => {
-          if (result) resolve(result);
-          else reject(error ?? new Error("Cloudinary upload failed"));
+          if (result) {
+            // فرض امتداد .avif على الرابط الناتج ليتم تخزينه بالشكل المطلوب في الداتا بيز
+            if (result.secure_url) {
+              result.secure_url = result.secure_url.replace(/\.[^/.]+$/, ".avif");
+            }
+            if (result.url) {
+              result.url = result.url.replace(/\.[^/.]+$/, ".avif");
+            }
+            resolve(result);
+          } else {
+            reject(error ?? new Error("Cloudinary upload failed"));
+          }
         },
       )
       .end(buffer);

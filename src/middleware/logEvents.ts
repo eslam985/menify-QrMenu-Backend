@@ -38,6 +38,8 @@ const logEvents = async (message: string, logName: string): Promise<void> => {
 };
 
 const logger: RequestHandler = (req, _res, next) => {
+    // in logEvents.ts, inside the logger middleware
+  if (req.originalUrl.startsWith("/api/public") || req.originalUrl.startsWith("/api/health")) return next();
   logEvents(`${req.method}\t${req.headers.origin}\t${req.url}`, "reqLog.txt");
   console.log(`${req.method} ${req.path}`);
   next();

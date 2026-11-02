@@ -9,8 +9,8 @@
 
 # .env must contain: EMAIL=...  PASSWORD=...   (the account created by request 2.1)
 # Edit these two for each NEW registration test (email + slug must be unique):
-@regEmail = owner1@test.com
-@regSlug = test-cafe-1
+@regEmail = user1@test.com
+@regSlug = restaurant-lamera
 @regPassword = Passw0rd!123
 
 # Access token captured from the login request below
@@ -122,10 +122,10 @@ POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
 {
-  "restaurantName": "Case Cafe",
-  "slug": "case-cafe-1",
-  "username": "case user",
-  "email": "CaseUser@Test.COM",
+  "restaurantName": "Lamera",
+  "slug": "restaurant-lamera",
+  "username": "regular user",
+  "email": "user1@test.com",
   "password": "Passw0rd!123"
 }
 

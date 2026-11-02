@@ -32,6 +32,7 @@ const newPasswordField = z
 const RESERVED_SLUGS = [
   "admin", "api", "app", "login", "logout", "register",
   "menu", "dashboard", "www", "static", "assets", "health",
+  "undefined", "null", "none", "test",
 ];
 
 // Must match the DB CHECK: ^[a-z0-9]+(-[a-z0-9]+)*$
