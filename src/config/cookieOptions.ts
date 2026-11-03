@@ -4,6 +4,7 @@ import type { CookieOptions } from "express";
 const isProduction = process.env.NODE_ENV === "production";
 
 // Single source of truth for the session lifetime (DB expires_at + cookie maxAge)
+// export const SESSION_TTL_MS = 60; //  for test
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const cookieOptions: CookieOptions = {
