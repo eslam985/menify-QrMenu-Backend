@@ -48,7 +48,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
   ) {
     res.status(503).json({
       success: false,
-      message: "حدثت مشكلة أثناء الاتصال بقاعدة البيانات، حاول مرة أخرى بعد قليل",
+      message: "حدثت مشكلة في الاتصال من جانبنا جرب مرة اخري",
     });
     return;
   }
