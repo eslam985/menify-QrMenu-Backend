@@ -174,11 +174,13 @@ const Offer = {
     const entries = Object.entries(data).filter(
       ([k, v]) => v !== undefined && (UPDATABLE_COLUMNS as readonly string[]).includes(k),
     );
+
     if (entries.length === 0 && data.items === undefined) {
       throw new CustomError("No valid data provided!", 400);
     }
 
     const client = await pool.connect();
+
     try {
       await client.query("BEGIN");
 
@@ -186,15 +188,19 @@ const Offer = {
         `SELECT id FROM offers WHERE id = $1 AND restaurant_id = $2 FOR UPDATE`,
         [id, restaurantId],
       );
+
       if (lock.rowCount === 0) {
         await client.query("ROLLBACK");
         return null;
       }
 
+      if (data.status === 'expired' || data.status === 'paused') data.is_active = false
+      
       // when only items change we still touch the row so the trigger refreshes updated_at
       const setter = entries.length
         ? entries.map(([k], i) => `${k} = $${i + 3}`).join(", ")
         : "title = title";
+
       await client.query(
         `UPDATE offers SET ${setter} WHERE id = $1 AND restaurant_id = $2`,
         [id, restaurantId, ...entries.map(([, v]) => v)],

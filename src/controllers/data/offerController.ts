@@ -64,7 +64,19 @@ const handleUpdateOffer: RequestHandler = async (req, res, next) => {
     const { offerId } = getParams<UpdateOfferType["params"]>(res);
     const body = req.body as UpdateOfferType["body"];
 
-    const offer = await Offer.update(offerId, getRestaurantId(req), body);
+    const endsAt = body.ends_at;
+    const endsAtTimestamp = endsAt ? Date.parse(endsAt) : null;
+    const currentTimestamp = Date.now();
+
+    if (endsAtTimestamp && endsAtTimestamp < currentTimestamp) {
+      body.is_active = false;
+    }
+
+    const offer = await Offer.update(offerId, getRestaurantId(req), {
+      ...body,
+      status: body.is_active ? "active" : 'expired',
+    });
+
     if (!offer) throw new CustomError(NOT_FOUND, 404);
 
     res.status(200).json({ success: true, message: "Offer updated", data: offer });

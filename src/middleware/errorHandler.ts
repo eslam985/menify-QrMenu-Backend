@@ -5,9 +5,10 @@ import { CustomError } from "#src/utils/customErr.js";
 
 const isProd = process.env.NODE_ENV === "production";
 
-// Network / DB-availability error codes (pg + Node)
+// Network / DB-availability error codes (pg + Node) 
 const DB_UNAVAILABLE = new Set([
   "ETIMEDOUT", "ENOTFOUND", "ECONNREFUSED", "ECONNRESET",
+  "ENETUNREACH",
   "57P01", // admin_shutdown
   "53300", // too_many_connections
 ]);
@@ -42,9 +43,12 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
   }
 
   // 2) Database unreachable
+    // 2) Database unreachable
   if (
     DB_UNAVAILABLE.has(err.code) ||
-    err.message?.includes("Connection terminated due to connection timeout")
+    err.name === "AggregateError" ||
+    err.message?.includes("Connection terminated due to connection timeout") ||
+    err.message?.includes("ENETUNREACH")
   ) {
     res.status(503).json({
       success: false,
@@ -52,6 +56,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
     });
     return;
   }
+
 
   // 3) Multer
   if (err.code === "LIMIT_FILE_SIZE") {

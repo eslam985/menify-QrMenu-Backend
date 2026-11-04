@@ -52,6 +52,7 @@ export interface UpdateOfferInput {
   ends_at?: string | undefined;
   is_active?: boolean | undefined;
   items?: OfferItemInput[] | undefined;
+  status: OfferStatus
 }
 
 export interface SetOfferImageResult {

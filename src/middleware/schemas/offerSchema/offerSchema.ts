@@ -45,9 +45,11 @@ const offerIdParams = z.object({ offerId: z.uuid("معرّف العرض غير �
 // ---------------------------------------------------------------
 // GET /api/offers?status=
 // ---------------------------------------------------------------
+const status = z.enum(["active", "upcoming", "expired", "paused"]).optional()
+
 const listOffersSchema = z.object({
   query: z.strictObject({
-    status: z.enum(["active", "upcoming", "expired", "paused"]).optional(),
+    status: status
   }),
 });
 
@@ -65,6 +67,7 @@ const createOfferSchema = z.object({
       ends_at: dateField,
       is_active: z.boolean().optional(),
       items: itemsField.optional(),
+      status: status
     })
     .refine((d) => new Date(d.ends_at) > new Date(d.starts_at ?? Date.now()), {
       message: "تاريخ انتهاء العرض يجب أن يكون بعد تاريخ البداية وبعد الآن",

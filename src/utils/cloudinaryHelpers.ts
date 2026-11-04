@@ -46,30 +46,43 @@ export const uploadImageBuffer = (
   maxSize = 800,
 ): Promise<UploadApiResponse> =>
   new Promise((resolve, reject) => {
-    cloudinary.uploader
-      .upload_stream(
-        {
-          folder,
-          resource_type: "image",
-          allowed_formats: ["jpg", "jpeg", "png", "webp", "avif"],
-          format: "avif",
-          quality: "auto:good",
-          transformation: [{ width: maxSize, height: maxSize, crop: "limit" }],
-        },
-        (error, result) => {
-          if (result) {
-            // فرض امتداد .avif على الرابط الناتج ليتم تخزينه بالشكل المطلوب في الداتا بيز
-            if (result.secure_url) {
-              result.secure_url = result.secure_url.replace(/\.[^/.]+$/, ".avif");
-            }
-            if (result.url) {
-              result.url = result.url.replace(/\.[^/.]+$/, ".avif");
-            }
-            resolve(result);
-          } else {
-            reject(error ?? new Error("Cloudinary upload failed"));
+    // 1. إنشاء الـ upload_stream أولاً
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: "image",
+        allowed_formats: ["jpg", "jpeg", "png", "webp", "avif"],
+        format: "avif",
+        quality: "auto:good",
+        transformation: [{ width: maxSize, height: maxSize, crop: "limit" }],
+        timeout: 60000, // 🌟 إضافة مهلة دقيقة كاملة لمنع الـ Timeout المفاجئ بسبب الشبكة
+      },
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+        
+        if (result) {
+          // 🌟 2. استنساخ الكائن لتجنب تعديل كائن Cloudinary الأصلي المحمي
+          const finalResult = { ...result };
+
+          if (finalResult.secure_url) {
+            finalResult.secure_url = finalResult.secure_url.replace(/\.[^/.]+$/, ".avif");
           }
-        },
-      )
-      .end(buffer);
+          if (finalResult.url) {
+            finalResult.url = finalResult.url.replace(/\.[^/.]+$/, ".avif");
+          }
+          
+          return resolve(finalResult);
+        }
+        
+        return reject(new Error("Cloudinary upload failed with empty result"));
+      }
+    );
+
+    // 🌟 3. كتابة الـ Buffer وإغلاق الـ Stream بشكل آمن وصحيح 100%
+    uploadStream.write(buffer, (err) => {
+      if (err) reject(err);
+    });
+    uploadStream.end();
   });
