@@ -1,4 +1,12 @@
 // /project_Full-stack/Menify/backend/src/types/globalTypes.ts
+
+
+export interface BaseApiResponse<T = null> {
+    success: boolean
+    message: string
+    data: T
+}
+
 export interface PageAndLimitType {
   page?: number;
   limit?: number;

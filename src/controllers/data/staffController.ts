@@ -46,6 +46,15 @@ const handleUpdateStaffRole: RequestHandler = async (req, res, next) => {
     const { staffId } = getParams<UpdateStaffRoleType["params"]>(res);
     const { roles } = req.body as UpdateStaffRoleType["body"];
 
+    if (req.userId === req.params.staffId) {
+      res.status(403).json({
+        success: false,
+        message: "لا يمكنك تعديل صلاحيتك الخاصة كمدير للنظام",
+      });
+
+      return
+    }
+
     const staff = await Staff.updateRole(staffId, getRestaurantId(req), roles);
 
     res.status(200).json({ success: true, message: "Role updated", data: staff });

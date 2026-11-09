@@ -20,8 +20,8 @@ const categoryIdParams = z.object({
   categoryId: z.uuid("معرّف التصنيف غير صالح"),
 });
 
-const sectionField = z.enum(["food", "drinks", "desserts", "other"], {
-  error: "القسم يجب أن يكون food أو drinks أو desserts أو other",
+const sectionField = z.enum(["food", "drinks", "desserts", 'shisha', "other"], {
+  error: "القسم يجب أن يكون food أو shisha او drinks أو desserts أو other",
 });
 // ---------------------------------------------------------------
 // POST /api/categories

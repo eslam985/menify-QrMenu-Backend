@@ -1,5 +1,5 @@
 /** Category as returned to the client (restaurant_id is intentionally not exposed) */
-export type CategorySection = "food" | "drinks" | "desserts" | "other";
+export type CategorySection = "food" | "drinks" | "desserts" | 'shisha' | "other";
 
 export interface CategoryResponse {
   id: string;

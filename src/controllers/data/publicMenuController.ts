@@ -49,7 +49,7 @@ const handleGetPublicMenu: RequestHandler = async (_req, res, next) => {
     }
 
     res.set("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
-    res.status(200).json({ success: true, data: menu });
+    res.status(200).json({ success: true, message: 'success', data: menu });
   } catch (err) {
     next(err);
   }

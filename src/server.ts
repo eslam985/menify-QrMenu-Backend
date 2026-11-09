@@ -62,10 +62,10 @@ app.use("/api/auth/logout", logoutRouter);
 // ---------------- Protected routes (verifyJWT per prefix) ----------------
 app.use("/api/avatar", verifyJWT, avatarRouter);
 app.use("/api/user", verifyJWT, userRouter);
-app.use("/api/categories", verifyJWT, categoriesRouter);
-app.use("/api/menu-items", verifyJWT, menuItemsRouter);
 app.use("/api/staff", verifyJWT, staffRouter);
 app.use("/api/restaurant", verifyJWT, restaurantRouter);
+app.use("/api/categories", verifyJWT, categoriesRouter);
+app.use("/api/menu-items", verifyJWT, menuItemsRouter);
 app.use("/api/offers", verifyJWT, offersRouter);
 
 

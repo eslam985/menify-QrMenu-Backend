@@ -10,7 +10,7 @@
     "lib": ["es2022"],
     "esModuleInterop": true,
     "types": ["node"],
-    "allowJs": true,
+    "allowJs": false,
 
     // Other Outputs
     // "sourceMap": true,
