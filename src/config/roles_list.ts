@@ -1,4 +1,4 @@
-// project_Full-stack/Menify/backend/src/config/roles_list.ts
+// project_Full-stack/tabloz/backend/src/config/roles_list.ts
 type RolesListType = {
   Admin: 5150;
   Editor: 1984;

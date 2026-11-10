@@ -1,5 +1,5 @@
 ### =====================================================================
-### Menify API tests (VS Code "REST Client" extension)
+### tabloz API tests (VS Code "REST Client" extension)
 ### Run the requests IN ORDER the first time.
 ### The refresh cookie ("jwt") is stored automatically by REST Client and
 ### sent to /api/auth/* because its path is /api/auth.

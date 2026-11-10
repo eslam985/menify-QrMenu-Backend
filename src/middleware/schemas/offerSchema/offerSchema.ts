@@ -5,7 +5,7 @@ const titleField = z
   .string({ error: "عنوان العرض مطلوب" })
   .trim()
   .min(1, "عنوان العرض مطلوب")
-  .max(150, "العنوان طويل جداً");
+  .max(180, "العنوان طويل جداً");
 
 // "" is stored as NULL; null clears it
 const descriptionField = z

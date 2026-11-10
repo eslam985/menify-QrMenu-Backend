@@ -30,6 +30,7 @@ import { toNumber } from "./utils/paramAndQueryHelpes.js";
 import categoriesRouter from "#src/routes/api/data/categories.js";
 import menuItemsRouter from "#src/routes/api/data/menuItems.js";
 import publicMenuRouter from "#src/routes/api/public/menu.js";
+import publicRestaurantsRouter from "#src/routes/api/public/restaurants.js";
 import staffRouter from "#src/routes/api/data/staff.js";
 import restaurantRouter from "#src/routes/api/data/restaurant.js";
 import offersRouter from "#src/routes/api/data/offers.js";
@@ -42,8 +43,9 @@ app.use(helmet());
 app.use(cors(corsOptions)); // must allow credentials: true for the refresh cookie
 
 app.use("/api/health", healthLimiter, healthRouter);
-// Public menu BEFORE burst/general limiters: those would block a whole café behind one IP
+// Public routes BEFORE burst/general limiters: those would block a whole café behind one IP
 app.use("/api/public/menu", publicBurstLimiter, publicLimiter, publicMenuRouter);
+app.use("/api/public/restaurants", publicBurstLimiter, publicLimiter, publicRestaurantsRouter);
 
 app.use(burstLimiter);
 app.use(generalLimiter);

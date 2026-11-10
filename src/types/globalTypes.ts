@@ -1,4 +1,4 @@
-// /project_Full-stack/Menify/backend/src/types/globalTypes.ts
+// /project_Full-stack/tabloz/backend/src/types/globalTypes.ts
 
 
 export interface BaseApiResponse<T = null> {
