@@ -57,11 +57,25 @@ const timezoneField = z
 const updateRestaurantSchema = z.object({
   body: z
     .strictObject({
-      name: z.string({ error: "اسم المطعم مطلوب" }).trim().min(2, "اسم المطعم قصير جداً").max(150),
-      description: z.string().trim().min(1).max(300, "الوصف طويل جداً (الحد الأقصى 300)").nullable(),
+      name: z
+        .string({ error: "اسم المطعم مطلوب" })
+        .trim()
+        .min(2, "اسم المطعم قصير جداً")
+        .max(150),
+      description: z
+        .string()
+        .trim()
+        .min(1)
+        .max(300, "الوصف طويل جداً (الحد الأقصى 300)")
+        .nullable(),
       phone: phoneField.nullable(),
       whatsapp: phoneField.nullable(),
-      address: z.string().trim().min(1).max(300, "العنوان طويل جداً").nullable(),
+      address: z
+        .string()
+        .trim()
+        .min(1)
+        .max(300, "العنوان طويل جداً")
+        .nullable(),
       maps_url: httpsUrlField.nullable(),
       instagram_url: httpsUrlField.nullable(),
       facebook_url: httpsUrlField.nullable(),

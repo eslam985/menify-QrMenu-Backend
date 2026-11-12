@@ -55,6 +55,7 @@ app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
 // ---------------- Public routes (no access token) ----------------
+app.use("/", require("./routes/root.js"));
 app.use("/api/auth/register", registerLimiter, registerRouter);
 app.use("/api/auth/login", loginLimiter, loginRouter);
 app.use("/api/auth/refresh", refreshLimiter, refreshRouter);
