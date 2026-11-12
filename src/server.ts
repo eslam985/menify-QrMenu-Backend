@@ -34,6 +34,7 @@ import publicRestaurantsRouter from "#src/routes/api/public/restaurants.js";
 import staffRouter from "#src/routes/api/data/staff.js";
 import restaurantRouter from "#src/routes/api/data/restaurant.js";
 import offersRouter from "#src/routes/api/data/offers.js";
+import rootRouter from "#src/routes/root.js";
 
 
 const PORT: number = toNumber(process.env.PORT) || 3000;
@@ -53,9 +54,8 @@ app.use(generalLimiter);
 app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
-
 // ---------------- Public routes (no access token) ----------------
-app.use("/", require("./routes/root.js"));
+app.use("/", rootRouter);
 app.use("/api/auth/register", registerLimiter, registerRouter);
 app.use("/api/auth/login", loginLimiter, loginRouter);
 app.use("/api/auth/refresh", refreshLimiter, refreshRouter);
