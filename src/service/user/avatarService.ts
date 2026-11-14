@@ -16,14 +16,18 @@ const AvatarService = {
   ): Promise<SetAndUpdateAvatarUrlResponse | null> {
     const result = await pool.query(
       `UPDATE users
-       SET avatar_history = CASE
-             WHEN avatar_url IS NOT NULL
-              AND avatar_url <> $1
-              AND NOT (avatar_url = ANY (avatar_history))
-             THEN array_append(avatar_history, avatar_url)
-             ELSE avatar_history
-           END,
-           avatar_url = $2
+       SET avatar_history = array_remove(
+        CASE
+          WHEN avatar_url IS NOT NULL
+          AND TRIM(avatar_url) <> ''
+          AND avatar_url <> $1
+          AND NOT (avatar_url = ANY (avatar_history))
+          THEN array_append(avatar_history, avatar_url)
+          ELSE avatar_history
+        END,
+        ''
+      ),
+        avatar_url = $2
        WHERE id = $3
        RETURNING ${RETURNING_COLS}`,
       [DEFAULT_AVATAR, newAvatarUrl, userId],
@@ -52,13 +56,17 @@ const AvatarService = {
   ): Promise<SetAndUpdateAvatarUrlResponse> {
     const result = await pool.query(
       `UPDATE users
-       SET avatar_history = CASE
-             WHEN avatar_url IS NOT NULL
-              AND avatar_url <> $1
-              AND NOT (avatar_url = ANY (avatar_history))
-             THEN array_append(array_remove(avatar_history, $2), avatar_url)
-             ELSE array_remove(avatar_history, $2)
-           END,
+       SET avatar_history = array_remove(
+      CASE
+        WHEN avatar_url IS NOT NULL
+         AND TRIM(avatar_url) <> ''
+         AND avatar_url <> $1
+         AND NOT (avatar_url = ANY (avatar_history))
+        THEN array_append(array_remove(avatar_history, $2), avatar_url)
+        ELSE array_remove(avatar_history, $2)
+      END,
+      ''
+    ),
            avatar_url = $2
        WHERE id = $3
          AND $2 = ANY (avatar_history)
