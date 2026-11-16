@@ -29,6 +29,7 @@ import {
 import { toNumber } from "./utils/paramAndQueryHelpes.js";
 import categoriesRouter from "#src/routes/api/data/categories.js";
 import menuItemsRouter from "#src/routes/api/data/menuItems.js";
+import menuBulkRouter from "#src/routes/api/data/menuBulk.js";
 import publicMenuRouter from "#src/routes/api/public/menu.js";
 import publicRestaurantsRouter from "#src/routes/api/public/restaurants.js";
 import staffRouter from "#src/routes/api/data/staff.js";
@@ -69,6 +70,7 @@ app.use("/api/staff", verifyJWT, staffRouter);
 app.use("/api/restaurant", verifyJWT, restaurantRouter);
 app.use("/api/categories", verifyJWT, categoriesRouter);
 app.use("/api/menu-items", verifyJWT, menuItemsRouter);
+app.use("/api/menu", verifyJWT, menuBulkRouter);
 app.use("/api/offers", verifyJWT, offersRouter);
 
 
