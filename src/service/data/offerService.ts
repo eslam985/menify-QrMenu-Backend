@@ -43,7 +43,7 @@ const baseSelect = (joinSql: string, whereSql: string): string => `
              'image_url', m.image_url,
              'is_available', COALESCE(m.is_available, true)
            ) ORDER BY oi.display_order, oi.id) AS items,
-           CASE WHEN count(*) > 0 AND bool_and(oi.menu_item_id IS NOT NULL)
+           CASE WHEN count(m.price) > 0
                 THEN sum(m.price * oi.quantity)::float8 END AS original_total,
            bool_and(oi.menu_item_id IS NULL OR m.is_available) AS all_available
     FROM offer_items oi
