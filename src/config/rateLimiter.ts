@@ -72,6 +72,23 @@ const refreshLimiter = rateLimit({
   message: msg("Too many refresh attempts"),
 });
 
+// Password reset request: strict to prevent OTP flooding / email abuse
+const passwordResetRequestLimiter = rateLimit({
+  ...base,
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  message: msg("لقد تجاوزت الحد المسموح من طلبات إعادة التعيين، حاول بعد 15 دقيقة"),
+});
+
+// OTP confirm: strict to prevent brute-force on the 6-digit OTP
+const passwordResetConfirmLimiter = rateLimit({
+  ...base,
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  message: msg("لقد تجاوزت الحد المسموح من المحاولات، حاول بعد 15 دقيقة"),
+});
+
 // Each upload costs Cloudinary credits. Keyed by user (runs after verifyJWT).
 const uploadLimiter = rateLimit({
   ...base,
@@ -111,5 +128,7 @@ export {
   uploadLimiter,
   menuImageLimiter,
   staffCreateLimiter,
-  publicBurstLimiter
+  publicBurstLimiter,
+  passwordResetRequestLimiter,
+  passwordResetConfirmLimiter,
 };

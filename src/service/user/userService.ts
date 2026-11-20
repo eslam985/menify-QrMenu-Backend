@@ -348,6 +348,112 @@ const User = {
     ]);
     return result.rowCount;
   },
+
+  // ---------------------------------------------------------------
+  // Password Reset Tokens
+  // ---------------------------------------------------------------
+
+  /**
+   * Invalidates any previous unused token for this user, then creates a fresh one.
+   * Uses a transaction so there is never a gap where the user has no valid token.
+   */
+  async createPasswordResetToken(
+    userId: string,
+    rawToken: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Invalidate any previous unused token for this user
+      await client.query(
+        `DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL`,
+        [userId],
+      );
+
+      await client.query(
+        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3)`,
+        [userId, hashToken(rawToken), expiresAt],
+      );
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  },
+
+  /**
+   * Looks up a valid (unused, not expired) reset token and returns the associated user_id.
+   * Returns null if the token is invalid, expired, or already used.
+   */
+  async findValidPasswordResetToken(rawToken: string): Promise<{ user_id: string } | null> {
+    const result = await pool.query(
+      `SELECT user_id FROM password_reset_tokens
+       WHERE token_hash = $1
+         AND used_at IS NULL
+         AND expires_at > now()`,
+      [hashToken(rawToken)],
+    );
+    return result.rows[0] ?? null;
+  },
+
+  /**
+   * Resets the user's password and marks the token as used — atomically.
+   * Also revokes ALL active sessions for extra security (forces re-login on all devices).
+   */
+    async consumeResetTokenAndChangePassword(
+    userId: string, 
+    rawToken: string,
+    newPasswordHash: string,
+  ): Promise<boolean> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Mark token as used ONLY if it belongs to this exact userId
+      const tokenResult = await client.query(
+        `UPDATE password_reset_tokens
+         SET used_at = now()
+         WHERE token_hash = $1
+           AND user_id = $2
+           AND used_at IS NULL
+           AND expires_at > now()
+         RETURNING user_id`,
+        [hashToken(rawToken), userId],
+      );
+
+      if (tokenResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return false; 
+      }
+
+      // Update the password
+      await client.query(
+        `UPDATE users SET password_hash = $1 WHERE id = $2`,
+        [newPasswordHash, userId],
+      );
+
+      // Revoke all active sessions
+      await client.query(
+        `DELETE FROM sessions WHERE user_id = $1`,
+        [userId],
+      );
+
+      await client.query("COMMIT");
+      return true;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  },
+
 };
 
 export default User;

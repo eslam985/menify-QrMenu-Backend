@@ -15,6 +15,7 @@ import logoutRouter from "#src/routes/api/auth/logout.js";
 import avatarRouter from "#src/routes/api/auth/avatar.js";
 import loginRouter from "#src/routes/api/auth/login.js";
 import userRouter from "#src/routes/api/auth/user.js";
+import passwordResetRouter from "#src/routes/api/auth/passwordReset.js";
 import healthRouter from "#src/routes/health.js";
 import errorHandler from "#src/middleware/errorHandler.js";
 import { logger } from "#src/middleware/logEvents.js";
@@ -25,6 +26,7 @@ import pool from "#src/config/dbConn.js";
 import {
   burstLimiter, generalLimiter, healthLimiter, publicBurstLimiter, publicLimiter,
   loginLimiter, registerLimiter, refreshLimiter,
+  passwordResetRequestLimiter, passwordResetConfirmLimiter,
 } from "#src/config/rateLimiter.js";
 import { toNumber } from "./utils/paramAndQueryHelpes.js";
 import categoriesRouter from "#src/routes/api/data/categories.js";
@@ -61,6 +63,9 @@ app.use("/api/auth/register", registerLimiter, registerRouter);
 app.use("/api/auth/login", loginLimiter, loginRouter);
 app.use("/api/auth/refresh", refreshLimiter, refreshRouter);
 app.use("/api/auth/logout", logoutRouter);
+app.use("/api/auth/password-reset/request", passwordResetRequestLimiter);
+app.use("/api/auth/password-reset/confirm", passwordResetConfirmLimiter);
+app.use("/api/auth/password-reset", passwordResetRouter);
 // Next step: app.use("/api/public", publicMenuRouter);   // GET /api/public/menu/:slug
 
 // ---------------- Protected routes (verifyJWT per prefix) ----------------
